@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 
 st.title("Crop Prediction System")
 
-data = pd.read_csv("ICRISAT.csv")
+data = pd.read_csv("ICRISAT-District Level Data.csv")
 
 data = data.dropna()
 
