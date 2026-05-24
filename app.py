@@ -2,20 +2,17 @@ import streamlit as st
 import pandas as pd
 import requests
 
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import train_test_split
-
-# ----------------------------------------------------
-# PAGE CONFIG
-# ----------------------------------------------------
+# ---------------------------------------------------
+# PAGE SETTINGS
+# ---------------------------------------------------
 
 st.set_page_config(page_title="AI Farmer Profit Predictor")
 
-st.title("AI Farmer Profit Prediction System")
+st.title("🌾 AI Farmer Profit Prediction System")
 
-# ----------------------------------------------------
-# LOAD DATA
-# ----------------------------------------------------
+# ---------------------------------------------------
+# LOAD DATASETS
+# ---------------------------------------------------
 
 data = pd.read_csv("ICRISAT-District Level Data.csv")
 
@@ -23,9 +20,9 @@ market_data = pd.read_csv("market_price.csv")
 
 data = data.dropna()
 
-# ----------------------------------------------------
+# ---------------------------------------------------
 # USER INPUTS
-# ----------------------------------------------------
+# ---------------------------------------------------
 
 st.subheader("Enter Farmer Details")
 
@@ -40,7 +37,7 @@ investment = st.number_input(
 
 acres = st.number_input(
     "Land Area (Acres)",
-    value=5.0
+    value=1.0
 )
 
 water = st.selectbox(
@@ -48,14 +45,14 @@ water = st.selectbox(
     ["Yes", "No"]
 )
 
-# ----------------------------------------------------
+# ---------------------------------------------------
 # WEATHER API
-# ----------------------------------------------------
+# ---------------------------------------------------
 
 API_KEY = "0879ca4ca202e6048f440bf91f856ccd"
 
-temperature = 0
-humidity = 0
+temperature = 30
+humidity = 60
 
 if district != "":
 
@@ -73,7 +70,7 @@ if district != "":
 
             humidity = weather_data['main']['humidity']
 
-            st.subheader("Live Weather Data")
+            st.subheader("🌦 Live Weather Data")
 
             st.write(f"Temperature: {temperature} °C")
 
@@ -81,34 +78,52 @@ if district != "":
 
         else:
 
-            st.warning("Invalid district/city")
+            st.warning("Invalid district/city name")
 
     except:
 
         st.warning("Weather API Error")
 
-# ----------------------------------------------------
-# RANDOM FOREST MODEL
-# ----------------------------------------------------
+# ---------------------------------------------------
+# CROP YIELD COLUMNS
+# ---------------------------------------------------
 
-X = data[['Year', 'State Code', 'RICE AREA (1000 ha)']]
+crop_mapping = {
 
-y = data['RICE PRODUCTION (1000 tons)']
+    "RICE": "RICE YIELD (Kg per ha)",
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X,
-    y,
-    test_size=0.2,
-    random_state=42
-)
+    "WHEAT": "WHEAT YIELD (Kg per ha)",
 
-model = RandomForestRegressor()
+    "MAIZE": "MAIZE YIELD (Kg per ha)",
 
-model.fit(X_train, y_train)
+    "GROUNDNUT": "GROUNDNUT YIELD (Kg per ha)",
 
-# ----------------------------------------------------
-# PREDICT BUTTON
-# ----------------------------------------------------
+    "SESAMUM": "SESAMUM YIELD (Kg per ha)",
+
+    "SUGARCANE": "SUGARCANE YIELD (Kg per ha)",
+
+    "COTTON": "COTTON YIELD (Kg per ha)",
+
+    "SOYABEAN": "SOYABEAN YIELD (Kg per ha)",
+
+    "CHICKPEA": "CHICKPEA YIELD (Kg per ha)",
+
+    "PIGEONPEA": "PIGEONPEA YIELD (Kg per ha)",
+
+    "PEARL MILLET": "PEARL MILLET YIELD (Kg per ha)",
+
+    "BARLEY": "BARLEY YIELD (Kg per ha)",
+
+    "SUNFLOWER": "SUNFLOWER YIELD (Kg per ha)",
+
+    "CASTOR": "CASTOR YIELD (Kg per ha)",
+
+    "LINSEED": "LINSEED YIELD (Kg per ha)"
+}
+
+# ---------------------------------------------------
+# PREDICTION BUTTON
+# ---------------------------------------------------
 
 if st.button("Predict Best Crop and Profit"):
 
@@ -117,73 +132,90 @@ if st.button("Predict Best Crop and Profit"):
     best_production = 0
     best_market_price = 0
 
-    # ------------------------------------------------
-    # LOOP THROUGH ALL CROPS
-    # ------------------------------------------------
+    # acre to hectare conversion
 
-    for index, row in market_data.iterrows():
+    hectares = acres * 0.4047
 
-        crop = row['Crop']
+    # -----------------------------------------------
 
-        market_price = row['Price']
+    for crop, yield_column in crop_mapping.items():
 
-        # production prediction
+        try:
 
-        production = model.predict(
-            [[2024, 1, acres]]
-        )[0]
+            # average yield from dataset
 
-        # thousand tons -> tons
+            avg_yield = data[yield_column].mean()
 
-        production_tons = production * 1000
+            # kg production
 
-        # tons -> quintals
+            production_kg = avg_yield * hectares
 
-        production_quintals = production_tons * 10
+            # weather adjustment
 
-        # weather effect
+            weather_factor = 1
 
-        weather_factor = 1
+            if temperature > 38:
 
-        if temperature > 35:
-            weather_factor = 0.8
+                weather_factor = 0.75
 
-        elif humidity > 70:
-            weather_factor = 1.1
+            elif temperature > 32:
 
-        adjusted_production = (
-            production_tons * weather_factor
-        )
+                weather_factor = 0.85
 
-        # water effect
+            elif humidity > 75:
 
-        if water == "No":
+                weather_factor = 1.10
 
-            adjusted_production *= 0.7
+            elif humidity < 30:
 
-        # profit
+                weather_factor = 0.80
 
-        profit = (
-            adjusted_production * market_price
-        ) - investment
+            # water availability effect
 
-        # best crop selection
+            if water == "No":
 
-        if profit > best_profit:
+                weather_factor *= 0.70
 
-            best_profit = profit
+            adjusted_kg = production_kg * weather_factor
 
-            best_crop = crop
+            # kg to quintals
 
-            best_market_price = market_price
+            production_quintals = adjusted_kg / 100
 
-            best_production = production_quintals
+            # get market price
+
+            market_price = market_data.loc[
+                market_data['Crop'] == crop,
+                'Price'
+            ].values[0]
+
+            # profit calculation
+
+            profit = (
+                production_quintals * market_price
+            ) - investment
+
+            # best crop selection
+
+            if profit > best_profit:
+
+                best_profit = profit
+
+                best_crop = crop
+
+                best_production = production_quintals
+
+                best_market_price = market_price
+
+        except:
+
+            pass
 
     # ------------------------------------------------
     # RESULTS
     # ------------------------------------------------
 
-    st.subheader("Prediction Results")
+    st.subheader("📊 Prediction Results")
 
     st.success(
         f"Recommended Crop: {best_crop}"
@@ -194,7 +226,7 @@ if st.button("Predict Best Crop and Profit"):
     )
 
     st.success(
-        f"Current Market Price: ₹ {best_market_price} per ton"
+        f"Market Price: ₹ {best_market_price} per quintal"
     )
 
     st.success(
@@ -208,11 +240,11 @@ if st.button("Predict Best Crop and Profit"):
         st.balloons()
 
         st.success(
-            "Profitable Crop Recommendation"
+            "✅ Profitable Crop Recommendation"
         )
 
     else:
 
         st.error(
-            "Low Profit. Try different inputs."
+            "❌ Low Profit. Try different inputs."
         )
