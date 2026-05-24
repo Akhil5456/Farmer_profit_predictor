@@ -136,7 +136,7 @@ if st.button("Predict Best Crop and Profit"):
 
     hectares = acres * 0.4047
 
-    # -----------------------------------------------
+    # ------------------------------------------------
 
     for crop, yield_column in crop_mapping.items():
 
@@ -146,56 +146,230 @@ if st.button("Predict Best Crop and Profit"):
 
             avg_yield = data[yield_column].mean()
 
-            # kg production
+            # production in kg
 
             production_kg = avg_yield * hectares
 
-            # weather adjustment
+            # ------------------------------------------------
+            # WEATHER SUITABILITY
+            # ------------------------------------------------
 
-            weather_factor = 1
+            suitability = 1
 
-            if temperature > 38:
+            # RICE
 
-                weather_factor = 0.75
+            if crop == "RICE":
 
-            elif temperature > 32:
+                if humidity >= 70 and water == "Yes":
 
-                weather_factor = 0.85
+                    suitability = 1.3
 
-            elif humidity > 75:
+                else:
 
-                weather_factor = 1.10
+                    suitability = 0.5
 
-            elif humidity < 30:
+            # WHEAT
 
-                weather_factor = 0.80
+            elif crop == "WHEAT":
 
-            # water availability effect
+                if 15 <= temperature <= 28:
 
-            if water == "No":
+                    suitability = 1.2
 
-                weather_factor *= 0.70
+                else:
 
-            adjusted_kg = production_kg * weather_factor
+                    suitability = 0.7
 
-            # kg to quintals
+            # MAIZE
+
+            elif crop == "MAIZE":
+
+                if 20 <= temperature <= 35:
+
+                    suitability = 1.1
+
+                else:
+
+                    suitability = 0.8
+
+            # SUGARCANE
+
+            elif crop == "SUGARCANE":
+
+                if water == "Yes" and humidity >= 60:
+
+                    suitability = 1.0
+
+                else:
+
+                    suitability = 0.4
+
+            # COTTON
+
+            elif crop == "COTTON":
+
+                if temperature >= 25 and humidity < 60:
+
+                    suitability = 1.2
+
+                else:
+
+                    suitability = 0.7
+
+            # GROUNDNUT
+
+            elif crop == "GROUNDNUT":
+
+                if 20 <= temperature <= 30:
+
+                    suitability = 1.1
+
+                else:
+
+                    suitability = 0.8
+
+            # SESAMUM
+
+            elif crop == "SESAMUM":
+
+                if humidity < 50:
+
+                    suitability = 1.1
+
+                else:
+
+                    suitability = 0.7
+
+            # SOYABEAN
+
+            elif crop == "SOYABEAN":
+
+                if humidity >= 60:
+
+                    suitability = 1.2
+
+                else:
+
+                    suitability = 0.8
+
+            # CHICKPEA
+
+            elif crop == "CHICKPEA":
+
+                if temperature < 30:
+
+                    suitability = 1.1
+
+                else:
+
+                    suitability = 0.7
+
+            # PIGEONPEA
+
+            elif crop == "PIGEONPEA":
+
+                if water == "No":
+
+                    suitability = 1.1
+
+                else:
+
+                    suitability = 0.9
+
+            # PEARL MILLET
+
+            elif crop == "PEARL MILLET":
+
+                if temperature >= 30:
+
+                    suitability = 1.2
+
+                else:
+
+                    suitability = 0.8
+
+            # BARLEY
+
+            elif crop == "BARLEY":
+
+                if temperature <= 25:
+
+                    suitability = 1.1
+
+                else:
+
+                    suitability = 0.7
+
+            # SUNFLOWER
+
+            elif crop == "SUNFLOWER":
+
+                if humidity < 60:
+
+                    suitability = 1.1
+
+                else:
+
+                    suitability = 0.8
+
+            # CASTOR
+
+            elif crop == "CASTOR":
+
+                if water == "No":
+
+                    suitability = 1.2
+
+                else:
+
+                    suitability = 0.8
+
+            # LINSEED
+
+            elif crop == "LINSEED":
+
+                if temperature < 28:
+
+                    suitability = 1.1
+
+                else:
+
+                    suitability = 0.8
+
+            else:
+
+                suitability = 1
+
+            # ------------------------------------------------
+            # FINAL PRODUCTION
+            # ------------------------------------------------
+
+            adjusted_kg = production_kg * suitability
+
+            # kg -> quintals
 
             production_quintals = adjusted_kg / 100
 
-            # get market price
+            # ------------------------------------------------
+            # MARKET PRICE
+            # ------------------------------------------------
 
             market_price = market_data.loc[
                 market_data['Crop'] == crop,
                 'Price'
             ].values[0]
 
-            # profit calculation
+            # ------------------------------------------------
+            # PROFIT
+            # ------------------------------------------------
 
             profit = (
                 production_quintals * market_price
             ) - investment
 
-            # best crop selection
+            # ------------------------------------------------
+            # BEST CROP
+            # ------------------------------------------------
 
             if profit > best_profit:
 
