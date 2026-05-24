@@ -6,15 +6,15 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 
 # ----------------------------------------------------
-# PAGE TITLE
+# PAGE CONFIG
 # ----------------------------------------------------
 
-st.set_page_config(page_title="Farmer Profit Predictor")
+st.set_page_config(page_title="AI Farmer Profit Predictor")
 
 st.title("AI Farmer Profit Prediction System")
 
 # ----------------------------------------------------
-# LOAD DATASETS
+# LOAD DATA
 # ----------------------------------------------------
 
 data = pd.read_csv("ICRISAT-District Level Data.csv")
@@ -81,53 +81,14 @@ if district != "":
 
         else:
 
-            st.warning("Invalid district/city name")
+            st.warning("Invalid district/city")
 
     except:
 
         st.warning("Weather API Error")
 
 # ----------------------------------------------------
-# CROP RECOMMENDATION LOGIC
-# ----------------------------------------------------
-
-if water == "Yes" and humidity >= 60:
-
-    best_crop = "RICE"
-
-elif temperature >= 30:
-
-    best_crop = "MAIZE"
-
-elif investment >= 100000:
-
-    best_crop = "COTTON"
-
-elif water == "No":
-
-    best_crop = "WHEAT"
-
-else:
-
-    best_crop = "GROUNDNUT"
-
-# ----------------------------------------------------
-# MARKET PRICE FETCH
-# ----------------------------------------------------
-
-try:
-
-    market_price = market_data.loc[
-        market_data['Crop'] == best_crop,
-        'Price'
-    ].values[0]
-
-except:
-
-    market_price = 2000
-
-# ----------------------------------------------------
-# MACHINE LEARNING MODEL
+# RANDOM FOREST MODEL
 # ----------------------------------------------------
 
 X = data[['Year', 'State Code', 'RICE AREA (1000 ha)']]
@@ -146,27 +107,80 @@ model = RandomForestRegressor()
 model.fit(X_train, y_train)
 
 # ----------------------------------------------------
-# PREDICTION
+# PREDICT BUTTON
 # ----------------------------------------------------
 
-if st.button("Predict Crop and Profit"):
+if st.button("Predict Best Crop and Profit"):
 
-    # Production Prediction
+    best_crop = ""
+    best_profit = -999999999
+    best_production = 0
+    best_market_price = 0
 
-    production = model.predict(
-        [[2024, 1, acres]]
-    )[0]
+    # ------------------------------------------------
+    # LOOP THROUGH ALL CROPS
+    # ------------------------------------------------
 
-    # Convert thousand tons to tons
+    for index, row in market_data.iterrows():
 
-    production_tons = production * 1000
+        crop = row['Crop']
 
-    # Profit Calculation
+        market_price = row['Price']
 
-    profit = (
-        production_tons * market_price
-    ) - investment
+        # production prediction
 
+        production = model.predict(
+            [[2024, 1, acres]]
+        )[0]
+
+        # thousand tons -> tons
+
+        production_tons = production * 1000
+
+        # tons -> quintals
+
+        production_quintals = production_tons * 10
+
+        # weather effect
+
+        weather_factor = 1
+
+        if temperature > 35:
+            weather_factor = 0.8
+
+        elif humidity > 70:
+            weather_factor = 1.1
+
+        adjusted_production = (
+            production_tons * weather_factor
+        )
+
+        # water effect
+
+        if water == "No":
+
+            adjusted_production *= 0.7
+
+        # profit
+
+        profit = (
+            adjusted_production * market_price
+        ) - investment
+
+        # best crop selection
+
+        if profit > best_profit:
+
+            best_profit = profit
+
+            best_crop = crop
+
+            best_market_price = market_price
+
+            best_production = production_quintals
+
+    # ------------------------------------------------
+    # RESULTS
     # ------------------------------------------------
 
     st.subheader("Prediction Results")
@@ -176,20 +190,20 @@ if st.button("Predict Crop and Profit"):
     )
 
     st.success(
-        f"Estimated Production: {production_tons:.2f} tons"
+        f"Estimated Production: {best_production:.2f} quintals"
     )
 
     st.success(
-        f"Current Market Price: ₹ {market_price} per ton"
+        f"Current Market Price: ₹ {best_market_price} per ton"
     )
 
     st.success(
-        f"Estimated Profit: ₹ {profit:.2f}"
+        f"Estimated Profit: ₹ {best_profit:.2f}"
     )
 
     # ------------------------------------------------
 
-    if profit > 0:
+    if best_profit > 0:
 
         st.balloons()
 
